@@ -188,7 +188,7 @@ int main (int argc, char *argv[])
 &emsp;&emsp;通过添加下面的规则，来给工程添加安装的功能。对于MathFunctions库，通过修改子目录下的`CMakeLists.txt`文件来实现，修改如下：
 ``` cmake
 install (TARGETS MathFunctions DESTINATION bin)
-install (FILES MathFunctions.h DESTINATION include)
+install (FILES mysqrt.h DESTINATION include)
 ```
 &emsp;&emsp;对于应用程序以下行被添加到顶层的`CMakeLists.txt`文件来安装可执行文件和配置的头文件：
 ``` cmake
@@ -200,7 +200,7 @@ install (FILES "${PROJECT_BINARY_DIR}/TutorialConfig.h"
 &emsp;&emsp;在执行`cmake`之后生成的Makefile文件中，生成了install目标，执行`make install`安装文件；
 可以通过变量`CMAKE_INSTALL_PREFIX`来指定安装的路径。
 
-&emsp;&emsp;编译出可执行文件后，我们可以添加测试命令，
+&emsp;&emsp;编译出可执行文件后，我们可以添加测试命令，编译完成后执行`make test`进行测试，在`CMakeLists.txt`文件中添加`PASS_REGULAR_EXPRESSION`属性，通过检测输出结果中包含的字符来判断代码执行的是否正确。
 ``` cmake
 include(CTest)
 # does the application run
@@ -219,3 +219,220 @@ set_tests_properties (TutorialSmall PROPERTIES PASS_REGULAR_EXPRESSION "0.0001 i
 add_test (TutorialUsage Tutorial)
 set_tests_properties (TutorialUsage PROPERTIES PASS_REGULAR_EXPRESSION "Usage:.*number")
 ```
+
+&emsp;&emsp;另外我们可以在`CMakeLists.txt`文件中定义一个函数，简化书写测试命令，具体实现如下：
+``` cmake
+#define a macro to simplify adding tests, then use it
+macro (do_test arg result)
+  add_test (TutorialComp${arg} Tutorial ${arg})
+  set_tests_properties (TutorialComp${arg}
+    PROPERTIES PASS_REGULAR_EXPRESSION ${result})
+endmacro (do_test)
+
+# do a bunch of result based tests
+do_test (25 "25 is 5")
+do_test (-25 "-25 is 0")
+```
+
+## 为工程添加日志功能
+
+&emsp;&emsp;接下来为我们的工程添加日志功能的宏控制，在顶层的`CMakeLists.txt`文件中增加下面代码：
+```
+# does this system provide the log and exp functions?
+include (CheckFunctionExists)
+check_function_exists (log HAVE_LOG)
+check_function_exists (exp HAVE_EXP)
+```
+&emsp;&emsp;然后在TutorialConfig.h.in文件中增加定义`HAVE_LOG`和`HAVE_EXP`宏定义。
+```
+// does the platform provide exp and log functions?
+#cmakedefine HAVE_LOG
+#cmakedefine HAVE_EXP
+```
+&emsp;&emsp;在mysqrt.cxx文件中，根据宏定义定义代码段，如下：
+```
+#if defined(HAVE_LOG) && defined(HAVE_EXP)
+  return sqrt(d);
+#else
+  return exp(log(d) * 0.5);
+#endif
+```
+
+## 添加一个生成器和生成文件
+
+&emsp;&emsp;本节中将为工程添加一个生成源文件。在下面的例子中，我们将创建预先计算平方分的表作为工程的输入。要做到这一点，我们需要先创建一个程序用于生成表。在MathFunctions子目录中新建一个`MakeTable.cxx`文件，其内容如下：
+``` cpp
+// A simple program that builds a sqrt table
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+int main (int argc, char *argv[])
+{
+  int i;
+  double result;
+
+  // make sure we have enough arguments
+  if (argc < 2)
+    {
+    return 1;
+    }
+
+  // open the output file
+  FILE *fout = fopen(argv[1],"w");
+  if (!fout)
+    {
+    return 1;
+    }
+
+  // create a source file with a table of square roots
+  fprintf(fout,"double sqrtTable[] = {\n");
+  for (i = 0; i < 10; ++i)
+    {
+    result = sqrt(static_cast<double>(i));
+    fprintf(fout,"%g,\n",result);
+    }
+
+  // close the table with a zero
+  fprintf(fout,"0};\n");
+  fclose(fout);
+  return 0;
+}
+```
+&emsp;&emsp;注意：生成的表格作为有效的C++代码并作为输出文件传递参数。接下来修改MathFunctions子目录下的`CMakeLists.txt`文件，用于创建`MakeTable`可执行文件，修改代码如下：
+```
+# first we add the executable that generates the table
+add_executable(MakeTable MakeTable.cxx)
+
+# add the command to generate the source code
+add_custom_command (
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/Table.h
+  COMMAND MakeTable ${CMAKE_CURRENT_BINARY_DIR}/Table.h
+  DEPENDS MakeTable
+  )
+
+# add the binary tree directory to the search path for
+# include files
+include_directories( ${CMAKE_CURRENT_BINARY_DIR} )
+
+# add the main library
+add_library(MathFunctions mysqrt.cxx ${CMAKE_CURRENT_BINARY_DIR}/Table.h)
+
+install (TARGETS MathFunctions DESTINATION bin)
+install (FILES mysqrt.h DESTINATION include)
+```
+&emsp;&emsp;首先需要将可执行文件`MakeTable`加到工程中，然后指定运行该文件以生成`Table.h`文件。接下来通过将生成的`Table.h`文件加到生成的MathFunctions库文件中以通知cmake `mysqrt.cxx`依赖于`Table.h`文件。同时我们还需要添加当前的库文件目录以便编译时可以找到`Table.h`文件。当编译生成`MakeTable`文件后，会执行该文件以生成`Table.h`文件。顶层的`CMakeLists.txt`文件如下：
+```
+cmake_minimum_required (VERSION 2.6)
+project (Tutorial)
+include(CTest)
+
+# The version number.
+set (Tutorial_VERSION_MAJOR 1)
+set (Tutorial_VERSION_MINOR 0)
+
+# does this system provide the log and exp functions?
+include (${CMAKE_ROOT}/Modules/CheckFunctionExists.cmake)
+
+check_function_exists (log HAVE_LOG)
+check_function_exists (exp HAVE_EXP)
+
+# should we use our own math functions
+option(USE_MYMATH
+  "Use tutorial provided math implementation" ON)
+
+# configure a header file to pass some of the CMake settings
+# to the source code
+configure_file (
+  "${PROJECT_SOURCE_DIR}/TutorialConfig.h.in"
+  "${PROJECT_BINARY_DIR}/TutorialConfig.h"
+  )
+
+# add the binary tree to the search path for include files
+# so that we will find TutorialConfig.h
+include_directories ("${PROJECT_BINARY_DIR}")
+
+# add the MathFunctions library?
+if (USE_MYMATH)
+  include_directories ("${PROJECT_SOURCE_DIR}/MathFunctions")
+  add_subdirectory (MathFunctions)
+  set (EXTRA_LIBS ${EXTRA_LIBS} MathFunctions)
+endif (USE_MYMATH)
+
+# add the executable
+add_executable (Tutorial tutorial.cxx)
+target_link_libraries (Tutorial  ${EXTRA_LIBS})
+
+# add the install targets
+install (TARGETS Tutorial DESTINATION bin)
+install (FILES "${PROJECT_BINARY_DIR}/TutorialConfig.h"
+         DESTINATION include)
+
+# does the application run
+add_test (TutorialRuns Tutorial 25)
+
+# does the usage message work?
+add_test (TutorialUsage Tutorial)
+set_tests_properties (TutorialUsage
+  PROPERTIES
+  PASS_REGULAR_EXPRESSION "Usage:.*number"
+  )
+
+
+#define a macro to simplify adding tests
+macro (do_test arg result)
+  add_test (TutorialComp${arg} Tutorial ${arg})
+  set_tests_properties (TutorialComp${arg}
+    PROPERTIES PASS_REGULAR_EXPRESSION ${result}
+    )
+endmacro (do_test)
+
+# do a bunch of result based tests
+do_test (4 "4 is 2")
+do_test (9 "9 is 3")
+do_test (5 "5 is 2.236")
+do_test (7 "7 is 2.645")
+do_test (25 "25 is 5")
+do_test (-25 "-25 is 0")
+do_test (0.0001 "0.0001 is 0.01")
+```
+&emsp;&emsp;配置文件TutorialConfig.h.in定义如下：
+```
+
+// the configured options and settings for Tutorial
+#define Tutorial_VERSION_MAJOR @Tutorial_VERSION_MAJOR@
+#define Tutorial_VERSION_MINOR @Tutorial_VERSION_MINOR@
+#cmakedefine USE_MYMATH
+
+// does the platform provide exp and log functions?
+#cmakedefine HAVE_LOG
+#cmakedefine HAVE_EXP
+```
+
+## 生成安装包
+&emsp;&emsp;通常我们发型软件时通过两种方式进行发行，第一种是通过发布可执行文件，另一种是通过发行源文件；我们要发行我们的软件也很简单，只需要在顶层的`CMakeLists.txt`文件结尾添加一下几行代码：
+```
+# build a CPack driven installer package
+include (InstallRequiredSystemLibraries)
+set (CPACK_RESOURCE_FILE_LICENSE
+     "${CMAKE_CURRENT_SOURCE_DIR}/License.txt")
+set (CPACK_PACKAGE_VERSION_MAJOR "${Tutorial_VERSION_MAJOR}")
+set (CPACK_PACKAGE_VERSION_MINOR "${Tutorial_VERSION_MINOR}")
+include (CPack)
+```
+&emsp;&emsp;创建二进制安装包，执行下面的命令：
+``` sh
+cpack --config CPackConfig.cmake
+```
+&emsp;&emsp;创建源文件安装包，执行下面的命令：
+```
+cpack --config CPackSourceConfig.cmake
+```
+
+## 上传测试结果
+&emsp;&emsp;将我们的测试结果提交到[展示网站](https://open.cdash.org/index.php?project=PublicDashboard)，方法很简单，在顶层的`CMakeLists.txt`文件中允许CTest如下：
+```
+# enable dashboard scripting
+include (CTest)
+```
+&emsp;&emsp;然后我们可以创建一个`CTestConfig.cmake`文件来指定项目的名称如下。CTest运行时将会读取这个文件。在执行`cmake`之后，进入编译生成文件目录，执行`ctest -D`，然后测试结果将会上传到展示网站上。

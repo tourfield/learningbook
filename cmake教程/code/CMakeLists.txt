@@ -34,7 +34,12 @@ add_executable(Tutorial tutorial.cxx)
 #target_link_libraries (Tutorial MathFunctions)
 target_link_libraries (Tutorial  ${EXTRA_LIBS})
 
-#CMAKE_INSTALL_PREFIX=${PROJECT_BINARY_DIR}
+# does this system provide the log and exp functions?
+include (CheckFunctionExists)
+check_function_exists (log HAVE_LOG)
+check_function_exists (exp HAVE_EXP)
+
+set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR}/install)
 
 # add the install targets
 install (TARGETS Tutorial DESTINATION bin)
@@ -42,20 +47,20 @@ install (FILES "${PROJECT_BINARY_DIR}/TutorialConfig.h"
          DESTINATION include)
 
 include(CTest)
-# does the application run 
-add_test (TutorialRuns Tutorial 25) 
-# does it sqrt of 25 
-add_test (TutorialComp25 Tutorial 25) 
-set_tests_properties (TutorialComp25 PROPERTIES PASS_REGULAR_EXPRESSION "25 is 5") 
-# does it handle negative numbers 
-add_test (TutorialNegative Tutorial -25) 
-set_tests_properties (TutorialNegative PROPERTIES PASS_REGULAR_EXPRESSION "-25 is -nan") 
+# does the application run
+add_test (TutorialRuns Tutorial 25)
+# does it sqrt of 25
+add_test (TutorialComp25 Tutorial 25)
+set_tests_properties (TutorialComp25 PROPERTIES PASS_REGULAR_EXPRESSION "25 is 5")
+# does it handle negative numbers
+add_test (TutorialNegative Tutorial -25)
+set_tests_properties (TutorialNegative PROPERTIES PASS_REGULAR_EXPRESSION "-25 is -nan")
 
-# does it handle small numbers 
-add_test (TutorialSmall Tutorial 0.0001) 
-set_tests_properties (TutorialSmall PROPERTIES PASS_REGULAR_EXPRESSION "0.0001 is 0.01") 
-# does the usage message work? 
-add_test (TutorialUsage Tutorial) 
+# does it handle small numbers
+add_test (TutorialSmall Tutorial 0.0001)
+set_tests_properties (TutorialSmall PROPERTIES PASS_REGULAR_EXPRESSION "0.0001 is 0.01")
+# does the usage message work?
+add_test (TutorialUsage Tutorial)
 set_tests_properties (TutorialUsage PROPERTIES PASS_REGULAR_EXPRESSION "Usage:.*number")
 
 
@@ -65,9 +70,15 @@ macro (do_test arg result)
   set_tests_properties (TutorialComp${arg}
     PROPERTIES PASS_REGULAR_EXPRESSION ${result})
 endmacro (do_test)
- 
+
 # do a bunch of result based tests
 do_test (9 "9 is 3")
 do_test (-9 "-9 is -nan")
 
-
+# build a CPack driven installer package
+include (InstallRequiredSystemLibraries)
+set (CPACK_RESOURCE_FILE_LICENSE
+     "${CMAKE_CURRENT_SOURCE_DIR}/License.txt")
+set (CPACK_PACKAGE_VERSION_MAJOR "${Tutorial_VERSION_MAJOR}")
+set (CPACK_PACKAGE_VERSION_MINOR "${Tutorial_VERSION_MINOR}")
+include (CPack)
