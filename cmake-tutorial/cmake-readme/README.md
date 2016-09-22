@@ -11,8 +11,8 @@
 &emsp;&emsp;再进行下面操作之前首先确保你已经安装了gitbook，如果没有安装可以[按照安装步骤]()见后文，进行安装。
 
 ```
-git clone
-cd learningbook/cmake教程/cmake手册
+git clone https://github.com/tourfield/learningbook.git
+cd learningbook/cmake-tutorial/cmake-readme
 make
 ```
 &emsp;&emsp;执行`make preview`,然后在浏览器中输入[localhost:4000](http://localhost:4000)可以预览HTML。
