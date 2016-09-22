@@ -435,4 +435,4 @@ cpack --config CPackSourceConfig.cmake
 # enable dashboard scripting
 include (CTest)
 ```
-&emsp;&emsp;然后我们可以创建一个`CTestConfig.cmake`文件来指定项目的名称如下。CTest运行时将会读取这个文件。在执行`cmake`之后，进入编译生成文件目录，执行`ctest -D`，然后测试结果将会上传到展示网站上。
+&emsp;&emsp;然后我们可以创建一个`CTestConfig.cmake`文件来指定项目的名称如下。CTest运行时将会读取这个文件。在执行`cmake`之后，进入编译生成文件目录，执行`ctest -DExperimental`，然后测试结果将会上传到展示网站上。
