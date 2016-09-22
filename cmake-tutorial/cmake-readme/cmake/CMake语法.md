@@ -3,8 +3,7 @@
 &emsp;&emsp;CMake 2.8.3共有80条命令。这些命令在手册中是字典序排列的；为了便于查找，翻译也按照字典序来组织。但是在翻译结束后，会对命令进行小结，与大家讨论一下这些命令的使用方法和使用时机。
 
 ## add_custom_command
-&emsp;&emsp;为生成的构建系统添加一条自定义的构建规则。
-&emsp;&emsp;add_custom_command命令有两种主要的功能；第一种是为了生成输出文件，添加一条自定义命令。
+&emsp;&emsp;为生成的构建系统添加一条自定义的构建规则。add_custom_command命令有两种主要的功能；第一种是为了生成输出文件，添加一条自定义命令。
 ```
   add_custom_command(OUTPUT output1 [output2 ...]
                      COMMAND command1 [ARGS] [args1...]
